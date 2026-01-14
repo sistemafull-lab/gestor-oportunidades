@@ -1,1 +1,1 @@
-# gestor-oportunindades
+# gestor-oportunidades
