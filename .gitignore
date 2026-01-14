@@ -1,0 +1,9 @@
+node_modules
+dist
+.env
+*.log
+cloud_sql_proxy
+.idx
+backend/node_modules
+frontend2/node_modules
+frontend2/dist

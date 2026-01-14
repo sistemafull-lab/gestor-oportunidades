@@ -1,0 +1,5 @@
+{
+  "name": "Gestor de Oportunidades - Migración Enterprise",
+  "description": "Aplicación web moderna para la gestión del ciclo de vida de oportunidades comerciales, reemplazando sistema legacy basado en Excel/VBA. Incluye lógica de negocio estricta, validaciones de estado y semáforos.",
+  "requestFramePermissions": []
+}
