@@ -120,13 +120,39 @@ const EditModal: React.FC<Props> = ({
         if (!formData.status_id) return setValidationMsg("Estado obligatorio");
         if (!formData.manager_id) return setValidationMsg("Gerente obligatorio");
         
-        if (!validateSemaforo(formData.percentage || 0, formData.color_code || 'NONE')) {
+        const percentageNum = parseFloat(String(formData.percentage || '0').replace(',', '.'));
+        if (!validateSemaforo(percentageNum, formData.color_code || 'NONE')) {
             return setValidationMsg("La combinación de Porcentaje y Semáforo no es válida según las reglas de negocio.");
         }
 
-        onSave(formData);
-    };
+        // Helper to safely parse numbers that might be strings with commas, null, or undefined
+        const safeParseNumber = (value: any): number | null => {
+            if (value === null || value === undefined || value === '') {
+                return null; // Return null for empty/missing values
+            }
+            const stringValue = String(value).replace(',', '.');
+            const number = parseFloat(stringValue);
+            return isNaN(number) ? null : number;
+        };
 
+        const dataToSave: Partial<Opportunity> = {
+            ...formData,
+            // Ensure boolean fields are always true or false
+            has_ia_proposal: !!formData.has_ia_proposal,
+            has_prototype: !!formData.has_prototype,
+            has_rfp: !!formData.has_rfp,
+            has_anteproyecto: !!formData.has_anteproyecto,
+            
+            // Ensure numeric fields are correctly parsed, providing defaults for non-nullable ones
+            percentage: safeParseNumber(formData.percentage) ?? 0,
+            k_red_index: safeParseNumber(formData.k_red_index) ?? 0,
+            estimated_hours: safeParseNumber(formData.estimated_hours),
+            estimated_term_months: safeParseNumber(formData.estimated_term_months),
+        };
+
+        onSave(dataToSave);
+    };
+                    
     const handleInputChange = (field: keyof Opportunity, value: any) => {
         let newData = { ...formData, [field]: value };
 

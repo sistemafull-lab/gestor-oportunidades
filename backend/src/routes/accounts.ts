@@ -8,16 +8,14 @@ router.get('/accounts', async (req, res) => {
     try {
         const onlyActive = req.query.active === 'true';
         let rows;
-        
         if (onlyActive) {
             rows = await db.table('accounts').where('is_active', true).select();
         } else {
             rows = await db.table('accounts').select();
         }
-        
         res.json(rows);
     } catch (error) {
-        console.error(error);
+        console.error('Error fetching accounts:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -26,8 +24,9 @@ router.get('/accounts', async (req, res) => {
 router.post('/accounts', async (req, res) => {
     try {
         const { name, contact_name, contact_email, is_active } = req.body;
-        if (!name) return res.status(400).json({ error: 'Account name is required' });
-
+        if (!name) {
+            return res.status(400).json({ error: 'El nombre de la cuenta es obligatorio.' });
+        }
         const newAccount = await db.table('accounts').insert({
             name,
             contact_name,
@@ -35,8 +34,12 @@ router.post('/accounts', async (req, res) => {
             is_active: is_active !== undefined ? is_active : true
         });
         res.status(201).json(newAccount);
-    } catch (error) {
-        console.error(error);
+    } catch (error: any) {
+        console.error('Error creating account:', error);
+        // Check for unique constraint violation (code for PostgreSQL)
+        if (error.code === '23505') {
+            return res.status(409).json({ error: `Ya existe una cuenta con el nombre '${req.body.name}'.` });
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -46,14 +49,16 @@ router.put('/accounts/:id', async (req, res) => {
     try {
         const { name, contact_name, contact_email, is_active } = req.body;
         const accountId = parseInt(req.params.id, 10);
-        if (isNaN(accountId)) return res.status(400).json({ error: 'Invalid account ID' });
+        if (isNaN(accountId)) {
+            return res.status(400).json({ error: 'ID de cuenta inválido.' });
+        }
 
         if (is_active === false) {
-            const { rows } = await db.query(
+            const result = await db.query(
                 'SELECT COUNT(*) FROM opportunities WHERE account_id = $1 AND is_archived = FALSE AND deleted_at IS NULL',
                 [accountId]
             );
-            const activeOppsCount = parseInt(rows[0].count, 10);
+            const activeOppsCount = parseInt(result.rows[0].count, 10);
             if (activeOppsCount > 0) {
                 return res.status(400).json({ error: `No se puede desactivar la cuenta porque tiene ${activeOppsCount} oportunidades activas.` });
             }
@@ -61,8 +66,11 @@ router.put('/accounts/:id', async (req, res) => {
         
         const updatedAccount = await db.table('accounts').update(accountId, { name, contact_name, contact_email, is_active });
         res.json(updatedAccount);
-    } catch (error) {
-        console.error(error);
+    } catch (error: any) {
+        console.error('Error updating account:', error);
+        if (error.code === '23505') {
+            return res.status(409).json({ error: `Ya existe otra cuenta con el nombre '${req.body.name}'.` });
+        }
         res.status(500).json({ error: 'Internal server error' });
     }
 });
@@ -71,17 +79,19 @@ router.put('/accounts/:id', async (req, res) => {
 router.delete('/accounts/:id', async (req, res) => {
     try {
         const accountId = parseInt(req.params.id, 10);
-        if (isNaN(accountId)) return res.status(400).json({ error: 'Invalid account ID' });
+        if (isNaN(accountId)) {
+            return res.status(400).json({ error: 'ID de cuenta inválido.' });
+        }
 
-        const { rows } = await db.query('SELECT COUNT(*) FROM opportunities WHERE account_id = $1', [accountId]);
-        if (parseInt(rows[0].count, 10) > 0) {
+        const result = await db.query('SELECT COUNT(*) FROM opportunities WHERE account_id = $1', [accountId]);
+        if (parseInt(result.rows[0].count, 10) > 0) {
             return res.status(400).json({ error: 'No se puede eliminar la cuenta porque tiene oportunidades asociadas.' });
         }
 
         await db.query('DELETE FROM accounts WHERE id = $1', [accountId]);
         res.status(204).send();
     } catch (error) {
-        console.error(error);
+        console.error('Error deleting account:', error);
         res.status(500).json({ error: 'Internal server error' });
     }
 });
